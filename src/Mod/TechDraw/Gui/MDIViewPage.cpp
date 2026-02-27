@@ -293,6 +293,16 @@ void MDIViewPage::setTabText(std::string tabText)
     }
 }
 
+// Override base class to preserve the Page's own label instead of using the document label.
+// This prevents Save As from renaming the tab from the page name to the new filename.
+void MDIViewPage::onRelabel(Gui::Document* /*pDoc*/)
+{
+    TechDraw::DrawPage* page = m_vpPage->getDrawPage();
+    if (page) {
+        setTabText(page->Label.getValue());
+    }
+}
+
 // advise the page to check QGraphicsScene parent/child relationships after undo
 void MDIViewPage::fixSceneDependencies()
 {
