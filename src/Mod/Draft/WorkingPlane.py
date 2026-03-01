@@ -243,6 +243,57 @@ class PlaneBase:
         self.position = pos + (self.axis * offset)
         return True
 
+    def align_to_straight_edge(self, edge, offset=0):
+        """Align the WP u-axis to a straight edge, keeping the current WP axis.
+
+        Used when a single straight edge is selected and does not define a
+        plane. The WP orientation (axis) is preserved; only the position and
+        u-axis are updated.
+
+        Parameters
+        ----------
+        edge: Part.Edge
+            A straight edge.
+        offset: float, optional
+            Defaults to zero.
+            Offset along the WP `axis`.
+
+        Returns
+        -------
+        `True`/`False`
+            `True` if successful.
+        """
+        tol = 1e-7
+        if edge.Length <= tol:
+            return False
+        u = edge.derivative1At(0).normalize()
+        v = self.axis.cross(u)
+        if v.Length <= tol:
+            return False
+        self.u = u
+        self.v = v.normalize()
+        self.position = edge.Vertexes[0].Point + (self.axis * offset)
+        return True
+
+    def align_to_vertex(self, vertex, offset=0):
+        """Move the WP origin to a vertex, keeping the current orientation.
+
+        Parameters
+        ----------
+        vertex: Part.Vertex
+            A vertex.
+        offset: float, optional
+            Defaults to zero.
+            Offset along the WP `axis`.
+
+        Returns
+        -------
+        `True`
+            Always successful.
+        """
+        self.position = vertex.Point + (self.axis * offset)
+        return True
+
     def align_to_face(self, face, offset=0):
         """Align the WP to a face with an optional offset.
 
@@ -1286,7 +1337,11 @@ class PlaneGui(PlaneBase):
     def align_to_selection(self, offset=0, _hist_add=True):
         """Align the WP to a selection with an optional offset.
 
-        The selection must define a plane.
+        For a single face the WP is aligned to that face. For a single curved
+        edge or wire the WP is aligned to the plane of that shape. For a
+        single straight edge the WP u-axis is aligned along the edge while the
+        WP axis (normal) is preserved. For a single vertex the WP origin is
+        moved to that point while the orientation is preserved.
 
         Parameter
         ---------
@@ -1351,8 +1406,12 @@ class PlaneGui(PlaneBase):
             ret = self.align_to_face(shape, offset, _hist_add)
         elif shape.ShapeType == "Edge":
             ret = self.align_to_edge_or_wire(shape, offset, _hist_add)
+            if ret is False:
+                ret = self.align_to_straight_edge(shape, offset, _hist_add)
         elif shape.Solids:
             ret = self.align_to_obj_placement(obj, offset, place, _hist_add)
+        elif shape.ShapeType == "Vertex":
+            ret = self.align_to_vertex(shape, offset, _hist_add)
         else:
             ret = self.align_to_edges_vertexes(shape.Vertexes, offset, _hist_add)
 
@@ -1385,6 +1444,19 @@ class PlaneGui(PlaneBase):
         """See PlaneBase.align_to_edge_or_wire."""
         if super().align_to_edge_or_wire(shape, offset) is False:
             return False
+        self._handle_custom(_hist_add)
+        return True
+
+    def align_to_straight_edge(self, edge, offset=0, _hist_add=True):
+        """See PlaneBase.align_to_straight_edge."""
+        if super().align_to_straight_edge(edge, offset) is False:
+            return False
+        self._handle_custom(_hist_add)
+        return True
+
+    def align_to_vertex(self, vertex, offset=0, _hist_add=True):
+        """See PlaneBase.align_to_vertex."""
+        super().align_to_vertex(vertex, offset)
         self._handle_custom(_hist_add)
         return True
 
